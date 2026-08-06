@@ -1,0 +1,68 @@
+import { describe, expect, test } from 'bun:test';
+import { eq } from 'drizzle-orm-v0';
+
+import { DrizzlePolicyError } from '../src';
+import { createScopedV0Db } from './fixtures/v0-policy-client';
+import * as schema from './fixtures/v0-schema';
+
+describe('v0 hardening', () => {
+  test('adds read policy predicates to selectDistinct builders', () => {
+    const db = createScopedV0Db();
+
+    const query = db.selectDistinct().from(schema.projects).toSQL();
+
+    expect(query.sql).toContain('"projects"."tenant_id" = $1');
+    expect(query.params).toContain('tenant_1');
+  });
+
+  test('adds read policy predicates to selectDistinctOn builders', () => {
+    const db = createScopedV0Db();
+
+    const query = db
+      .selectDistinctOn([schema.projects.ownerId])
+      .from(schema.projects)
+      .toSQL();
+
+    expect(query.sql).toContain('"projects"."tenant_id" = $1');
+    expect(query.params).toContain('tenant_1');
+  });
+
+  test('a later where() keeps the policy predicate', () => {
+    const db = createScopedV0Db();
+
+    const builder = db.select().from(schema.projects);
+    // A terminal-property read applies the policy predicate early.
+    void (builder as { then?: unknown }).then;
+    const query = builder.where(eq(schema.projects.id, 'p1')).toSQL();
+
+    expect(query.sql).toContain('"projects"."tenant_id" = $1');
+    expect(query.sql).toContain('"projects"."id" = $2');
+  });
+
+  test('unsupported surfaces are inert to read and throw on call', () => {
+    const db = createScopedV0Db();
+
+    for (const surface of [
+      'with',
+      '$with',
+      'refreshMaterializedView',
+      '$count',
+      '$client',
+    ]) {
+      const value = (db as unknown as Record<string, unknown>)[surface];
+      expect(typeof value).toBe('function');
+      expect(value as () => unknown).toThrow(DrizzlePolicyError);
+    }
+  });
+
+  test('onQueryError translates a driver error from a wrapped select', async () => {
+    const translated = new Error('translated');
+    const db = createScopedV0Db({ onQueryError: () => translated });
+
+    const query = db
+      .select()
+      .from(schema.projects) as unknown as Promise<unknown>;
+
+    await expect(Promise.resolve(query)).rejects.toBe(translated);
+  });
+});
