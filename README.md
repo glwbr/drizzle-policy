@@ -394,6 +394,7 @@ Defaults:
 | ------------------- | ------- | ------------------------------------------------------------------------------------------ |
 | `onNoPolicyMatched` | `allow` | Operations that no policy handles continue unchanged.                                      |
 | `rawExecution`      | `throw` | Direct raw execution methods such as `execute` are rejected outside unsafe execute scopes. |
+| `onQueryError`      | –       | Translates an error raised by any wrapped execution path; the returned value is thrown.    |
 
 Recipe defaults:
 
