@@ -202,6 +202,12 @@ export const wrapWhereQuery = (
         }
 
         const result = Reflect.apply(value, target, args);
+        if (prop === 'where') {
+          // .where() assigns rather than accumulates, discarding an applied
+          // policy predicate — re-arm so it is recombined.
+          applied = false;
+        }
+
         return result === target ? proxy : result;
       };
     },
