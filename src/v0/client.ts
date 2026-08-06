@@ -27,6 +27,7 @@ import {
   enforceRawExecution,
   evaluateDeletePolicies,
 } from './policy-engine.js';
+import { wrapQueryErrors } from './query-errors.js';
 import { wrapRelationalQueryRoot } from './relational.js';
 import { createTableRegistry } from './table-registry.js';
 import { emitTrace, type V0PolicyTraceSink } from './trace.js';
@@ -358,7 +359,10 @@ function createPolicyClientCore<
         return (...args: readonly unknown[]) => {
           emitClientCall(runtime.trace, 'execute');
           enforceRawExecution(runtime, 'execute', args);
-          return Reflect.apply(value, target, args);
+          return wrapQueryErrors(
+            assertObject(Reflect.apply(value, target, args)),
+            runtime
+          );
         };
       }
 
@@ -430,11 +434,17 @@ function createPolicyClientCore<
               plan.updateSet,
             ]);
 
-            return wrapWhereQuery(updateQuery, plan.predicates);
+            return wrapQueryErrors(
+              wrapWhereQuery(updateQuery, plan.predicates),
+              runtime
+            );
           }
 
           const builder = Reflect.apply(value, target, [table, ...args]);
-          return wrapWhereQuery(assertObject(builder), plan.predicates);
+          return wrapQueryErrors(
+            wrapWhereQuery(assertObject(builder), plan.predicates),
+            runtime
+          );
         };
       }
 
