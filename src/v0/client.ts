@@ -15,12 +15,13 @@ import type {
   RawExecutionOption,
   UnsafePolicyInput,
 } from '../core/client.js';
-import type {
-  MaybeSchema,
-  PolicyContext,
-  PolicyNameInput,
-  PolicyNames,
-  PolicySet,
+import {
+  DrizzlePolicyError,
+  type MaybeSchema,
+  type PolicyContext,
+  type PolicyNameInput,
+  type PolicyNames,
+  type PolicySet,
 } from '../core/types.js';
 import {
   enforceRawExecution,
@@ -156,6 +157,17 @@ export function createPolicyClient<
     TOptions
   >;
 }
+
+/**
+ * Query-producing surfaces the policy client cannot enforce.
+ */
+const UNSUPPORTED_SURFACES: ReadonlySet<string> = new Set([
+  'with',
+  '$with',
+  'refreshMaterializedView',
+  '$count',
+  '$client',
+]);
 
 /**
  * Select-style methods that resolve their table only at `.from(...)`.
@@ -324,6 +336,16 @@ function createPolicyClientCore<
 
       if (prop === 'withPoliciesDisabled') {
         return helpers.withPoliciesDisabled;
+      }
+
+      if (typeof prop === 'string' && UNSUPPORTED_SURFACES.has(prop)) {
+        // Refuse on call, not on read: a throwing property read would abort
+        // framework property enumeration at bootstrap.
+        return () => {
+          throw new DrizzlePolicyError(
+            `Drizzle Policy cannot enforce "${prop}"; it is not exposed by the policy client.`
+          );
+        };
       }
 
       const value = Reflect.get(target, prop, receiver);
