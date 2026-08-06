@@ -27,7 +27,7 @@ export interface PolicyRuntime<TContext, TSchema extends MaybeSchema> {
    *
    * @defaultValue `undefined`
    */
-  readonly trace?: V0PolicyTraceSink;
+  readonly trace?: V0PolicyTraceSink | undefined;
   /**
    * Reads the current policy context.
    *
