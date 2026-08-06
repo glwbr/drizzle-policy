@@ -158,6 +158,15 @@ export function createPolicyClient<
 }
 
 /**
+ * Select-style methods that resolve their table only at `.from(...)`.
+ */
+const SELECT_METHODS: ReadonlySet<string> = new Set([
+  'select',
+  'selectDistinct',
+  'selectDistinctOn',
+]);
+
+/**
  * Creates the protected Drizzle client used by public bundles and nested scopes.
  *
  * This internal helper returns the proxied client directly. Public callers
@@ -359,9 +368,13 @@ function createPolicyClientCore<
         };
       }
 
-      if (prop === 'select' && typeof value === 'function') {
+      if (
+        typeof prop === 'string' &&
+        SELECT_METHODS.has(prop) &&
+        typeof value === 'function'
+      ) {
         return (...args: readonly unknown[]) => {
-          emitClientCall(runtime.trace, 'select');
+          emitClientCall(runtime.trace, prop);
           const builder = Reflect.apply(value, target, args);
           return wrapSelectBuilder(builder, runtime, tables);
         };
