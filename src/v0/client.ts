@@ -67,6 +67,13 @@ export interface CreateV0PolicyClientOptions<
    * @defaultValue `undefined`
    */
   readonly trace?: V0PolicyTraceSink;
+  /**
+   * Translates an error raised by a v0 policy-wrapped execution path; the
+   * returned value is thrown in place of the original.
+   *
+   * @defaultValue `undefined`
+   */
+  readonly onQueryError?: (error: unknown) => unknown;
 }
 
 /**
@@ -228,7 +235,7 @@ function createPolicyClientCore<
   };
 
   const runtime = {
-    options: options as CreatePolicyClientOptions<TContext, TSchema>,
+    options: options as CreateV0PolicyClientOptions<TContext, TSchema>,
     trace: options.trace,
     getContext: getPolicyContext,
     getDisabledPolicyNames: policyDisableScope.getDisabledPolicyNames,

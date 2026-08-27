@@ -358,13 +358,6 @@ export interface CreatePolicyClientOptions<
    * @defaultValue `'throw'`
    */
   readonly rawExecution?: RawExecutionOption<TContext>;
-  /**
-   * Translates an error raised by any policy-wrapped execution path; the
-   * returned value is thrown in place of the original.
-   *
-   * @defaultValue `undefined`
-   */
-  readonly onQueryError?: (error: unknown) => unknown;
 }
 
 /**
