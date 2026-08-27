@@ -111,4 +111,66 @@ describe('v0 hardening', () => {
 
     await expect(prepared.execute()).rejects.toBe(translated);
   });
+
+  test('onQueryError translates promise rejection paths', async () => {
+    const translated = new Error('translated');
+    const db = createScopedV0Db({ onQueryError: () => translated });
+    const makeQuery = () =>
+      db.select().from(schema.projects) as unknown as Promise<unknown>;
+
+    const recovered = await makeQuery().then(undefined, error => error);
+    const caught = await makeQuery().catch(error => error);
+    await expect(makeQuery().then()).rejects.toBe(translated);
+    await expect(makeQuery().catch(undefined)).rejects.toBe(translated);
+
+    let finalized = false;
+    await expect(
+      makeQuery().finally(() => {
+        finalized = true;
+      })
+    ).rejects.toBe(translated);
+
+    expect(recovered).toBe(translated);
+    expect(caught).toBe(translated);
+    expect(finalized).toBe(true);
+    expect(Object.prototype.toString.call(makeQuery())).toBe('[object Object]');
+  });
+
+  test('onQueryError preserves successful direct execution', async () => {
+    const environment = createV0TestEnvironment();
+    await environment.client.exec(`
+      create table countries (
+        code varchar(2) primary key,
+        name varchar(255) not null
+      )
+    `);
+    const { db } = createPolicyClient(environment.db, {
+      policies: [],
+      onQueryError: error => error,
+    });
+
+    try {
+      const result = await (db as any)
+        .select()
+        .from(schema.countries)
+        .execute();
+
+      expect(result).toEqual([]);
+    } finally {
+      await environment.client.close();
+    }
+  });
+
+  test('rejects invalid insert builder results', () => {
+    const rawDb = {
+      insert: () => ({
+        values: (_values: unknown) => null,
+      }),
+    };
+    const { db } = createPolicyClient(rawDb, { policies: [] });
+
+    expect(() => db.insert().values({ id: 'project_1' })).toThrow(
+      'Expected Drizzle insert.values() to return an object.'
+    );
+  });
 });

@@ -39,11 +39,11 @@ const createErrorProxy = (
             onFulfilled,
             (error: unknown) => {
               const mapped = onQueryError(error);
-              if (typeof onRejected === 'function') {
-                return onRejected(mapped);
+              if (typeof onRejected !== 'function') {
+                throw mapped;
               }
 
-              throw mapped;
+              return onRejected(mapped);
             },
           ]);
         };
