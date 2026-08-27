@@ -88,6 +88,14 @@ const createErrorProxy = (
           return proxy;
         }
 
+        if (
+          (prop === 'prepare' || prop === '_prepare') &&
+          typeof result === 'object' &&
+          result !== null
+        ) {
+          return createErrorProxy(result, onQueryError);
+        }
+
         return isThenable(result)
           ? createErrorProxy(result, onQueryError)
           : result;

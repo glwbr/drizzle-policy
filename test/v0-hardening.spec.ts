@@ -100,4 +100,15 @@ describe('v0 hardening', () => {
       await environment.client.close();
     }
   });
+
+  test('onQueryError translates prepared-query execution errors', async () => {
+    const translated = new Error('translated');
+    const db = createScopedV0Db({ onQueryError: () => translated });
+    const prepared = (db as any)
+      .select()
+      .from(schema.projects)
+      .prepare('policy_error_translation');
+
+    await expect(prepared.execute()).rejects.toBe(translated);
+  });
 });
