@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm-v0';
 
-import { DrizzlePolicyError } from '../src';
+import { DrizzlePolicyError, definePolicies } from '../src';
+import { scopeIsolationPolicy } from '../src/recipes/scope-isolation-policy';
+import { createPolicyClient } from '../src/v0';
+import { createV0TestEnvironment } from './fixtures/drizzle-environments';
 import { createScopedV0Db } from './fixtures/v0-policy-client';
 import * as schema from './fixtures/v0-schema';
 
@@ -64,5 +67,37 @@ describe('v0 hardening', () => {
       .from(schema.projects) as unknown as Promise<unknown>;
 
     await expect(Promise.resolve(query)).rejects.toBe(translated);
+  });
+
+  test('onQueryError preserves execution-time policy context', async () => {
+    type Context = { tenantId: string };
+
+    const environment = createV0TestEnvironment();
+    const policies = definePolicies<Context, typeof schema>()(() => [
+      scopeIsolationPolicy<Context, typeof schema>({
+        column: 'tenantId',
+        getScopeValue: context => context.tenantId,
+      }),
+    ]);
+    const { db, policyContext } = createPolicyClient(environment.db, {
+      policies,
+      onQueryError: error => error,
+    });
+
+    try {
+      const query = policyContext.run({ tenantId: 'tenant_a' }, () =>
+        (db as any)
+          .select()
+          .from(schema.projects)
+          .where(eq(schema.projects.id, 'project_1'))
+      );
+      const rendered = policyContext.run({ tenantId: 'tenant_b' }, () =>
+        query.toSQL()
+      );
+
+      expect(rendered.params).toEqual(['tenant_b', 'project_1']);
+    } finally {
+      await environment.client.close();
+    }
   });
 });

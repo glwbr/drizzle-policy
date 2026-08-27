@@ -84,6 +84,10 @@ const createErrorProxy = (
 
       return (...args: readonly unknown[]) => {
         const result = Reflect.apply(value, target, args);
+        if (result === target) {
+          return proxy;
+        }
+
         return isThenable(result)
           ? createErrorProxy(result, onQueryError)
           : result;
